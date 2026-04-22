@@ -415,39 +415,6 @@ body.mode-decrypt #prompt:focus { border-color: var(--a4); }
 .sdot.off { background: var(--muted); box-shadow: none; }
 #s-prov { color: var(--a1); }
 
-/* ──────────────────────────────── AUTH OVERLAY (for puter.js popup fix) */
-#auth-overlay {
-  position: fixed; inset: 0; z-index: 9999;
-  background: rgba(0,0,0,.8); backdrop-filter: blur(6px);
-  display: none; align-items: center; justify-content: center;
-}
-#auth-overlay.show { display: flex; }
-.auth-modal {
-  background: var(--surface2); border: 1px solid var(--border2);
-  border-radius: 10px; overflow: hidden;
-  width: min(480px, 90vw); height: min(600px, 85vh);
-  display: flex; flex-direction: column;
-  box-shadow: 0 20px 60px rgba(0,0,0,.6);
-}
-.auth-modal-hd {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 10px 14px; border-bottom: 1px solid var(--border);
-  background: var(--surface); flex-shrink: 0;
-}
-.auth-modal-hd span { font-size: .75rem; color: var(--muted2); }
-#auth-close {
-  background: none; border: 1px solid var(--border); border-radius: 3px;
-  color: var(--muted); cursor: pointer; padding: 3px 8px; font-size: .7rem;
-}
-#auth-close:hover { color: var(--a3); border-color: var(--a3); }
-#auth-iframe { flex: 1; border: none; width: 100%; }
-.auth-fallback {
-  padding: 20px; text-align: center; display: none; flex-direction: column; gap: 12px;
-}
-.auth-fallback.show { display: flex; }
-.auth-fallback p { font-size: .75rem; color: var(--muted2); line-height: 1.6; }
-.auth-fallback a { color: var(--a1); }
-
 /* ──────────────────────────────── RESPONSIVE */
 * { scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
 
@@ -464,22 +431,6 @@ body.mode-decrypt #prompt:focus { border-color: var(--a4); }
 </head>
 <body class="mode-code">
 
-<!-- AUTH OVERLAY — traps puter.js auth popup in-page -->
-<div id="auth-overlay">
-  <div class="auth-modal">
-    <div class="auth-modal-hd">
-      <span>🔐 Sign in to puter.com</span>
-      <button id="auth-close">✕ Cancel</button>
-    </div>
-    <iframe id="auth-iframe" allow="same-origin" sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-top-navigation allow-popup-to-escape-sandbox"></iframe>
-    <div class="auth-fallback" id="auth-fallback">
-      <p><strong>Sign in to puter.com</strong><br><br>
-         Your API keys and data are stored securely with puter.js.<br><br>
-         <a id="auth-ext-link" href="https://puter.com" target="_blank" style="color:var(--a1);font-weight:700">Open puter.com to sign in ↗</a><br><br>
-         <small style="color:var(--muted)">After signing in, come back and refresh this page.</small></p>
-    </div>
-  </div>
-</div>
 
 <!-- HEADER -->
 <div class="hdr">
@@ -605,113 +556,6 @@ body.mode-decrypt #prompt:focus { border-color: var(--a4); }
 
 <script>
 // ════════════════════════════════════════════════════════════
-// PUTER.JS AUTH FIX — intercept window.open BEFORE puter loads
-// so the sign-in popup appears as an in-page overlay
-// ════════════════════════════════════════════════════════════
-(function() {
-  const _open = window.open.bind(window);
-  let fakeWinRef = null;
-
-  window.open = function(url, name, features) {
-    if (!url) return _open(url, name, features);
-    const urlStr = String(url);
-
-    // Only intercept puter.com auth popups
-    if (urlStr.includes('puter.com') && (urlStr.includes('login') || urlStr.includes('auth') || urlStr.includes('sign'))) {
-      showAuthOverlay(urlStr);
-
-      // Return a fake window so puter.js doesn't throw
-      const fakeWin = {
-        closed: false,
-        location: { href: urlStr },
-        focus: function() {},
-        close: function() { hideAuthOverlay(); this.closed = true; },
-        postMessage: function(data, origin) {
-          const iframe = document.getElementById('auth-iframe');
-          try { iframe?.contentWindow?.postMessage(data, origin || '*'); } catch(e){}
-        }
-      };
-      fakeWinRef = fakeWin;
-      return fakeWin;
-    }
-
-    // Everything else — open normally
-    return _open(url, name, features);
-  };
-
-  function showAuthOverlay(url) {
-    const overlay = document.getElementById('auth-overlay');
-    const iframe  = document.getElementById('auth-iframe');
-    const fallback= document.getElementById('auth-fallback');
-    const extLink = document.getElementById('auth-ext-link');
-
-    if (extLink) extLink.href = url;
-    overlay.classList.add('show');
-    iframe.style.display = 'block';
-    fallback.classList.remove('show');
-
-    let loadTimeout;
-    const showFallback = function() {
-      iframe.style.display = 'none';
-      fallback.classList.add('show');
-    };
-
-    iframe.onload = function() {
-      clearTimeout(loadTimeout);
-      // Check if iframe loaded correctly
-      try {
-        // If we can access contentDocument it loaded; if not → CORS blocked
-        const _ = iframe.contentDocument;
-      } catch(e) {
-        // CORS error = loaded on puter.com = good (auth page is there)
-      }
-    };
-
-    iframe.onerror = function() {
-      // Blocked — show fallback
-      showFallback();
-    };
-
-    // Set a timeout to show fallback if iframe doesn't load in 3 seconds
-    loadTimeout = setTimeout(showFallback, 3000);
-    iframe.src = url;
-  }
-
-  function hideAuthOverlay() {
-    const overlay = document.getElementById('auth-overlay');
-    const iframe  = document.getElementById('auth-iframe');
-    overlay.classList.remove('show');
-    iframe.src = 'about:blank';
-    if (fakeWinRef) { fakeWinRef.closed = true; fakeWinRef = null; }
-  }
-
-  // Relay postMessages FROM the iframe TO puter.js handlers
-  window.addEventListener('message', function(e) {
-    // puter.js listens for its own auth messages on window
-    // We just re-dispatch anything from the iframe
-    if (e.source === document.getElementById('auth-iframe')?.contentWindow) {
-      // Auth completed — close overlay after brief delay
-      if (e.data && (e.data.type === 'puter:auth' || e.data.token || e.data.success || e.data.key)) {
-        setTimeout(hideAuthOverlay, 600);
-      }
-    }
-  });
-
-  document.addEventListener('DOMContentLoaded', function() {
-    document.getElementById('auth-close').addEventListener('click', hideAuthOverlay);
-    document.getElementById('auth-overlay').addEventListener('click', function(e) {
-      if (e.target === this) hideAuthOverlay();
-    });
-  });
-
-  window.__hideAuthOverlay = hideAuthOverlay;
-})();
-</script>
-
-<script src="https://js.puter.com/v2/"></script>
-
-<script>
-// ════════════════════════════════════════════════════════════
 // PROVIDER REGISTRY — coding providers only
 // ════════════════════════════════════════════════════════════
 const PROVIDERS = [
@@ -804,38 +648,15 @@ function showUser(u) {
 
 document.getElementById('signin-btn').addEventListener('click', async () => {
   try {
-    // Show fallback immediately since iframe approach fails due to CORS
-    showAuthFallback();
-
-    // Try puter.js sign in anyway (it might work in external environment)
-    try {
-      await puter.auth.signIn();
-      const u = await puter.auth.getUser();
-      showUser(u);
-      window.__hideAuthOverlay?.();
-      await loadKeys();
-      refreshSB();
-    } catch (e) {
-      console.warn('puter.js auth popup failed, using external link', e);
-    }
+    await puter.auth.signIn();
+    const u = await puter.auth.getUser();
+    showUser(u);
+    await loadKeys();
+    refreshSB();
   } catch (e) {
-    console.warn('Auth error', e);
+    console.warn('Auth cancelled or failed', e);
   }
 });
-
-function showAuthFallback() {
-  const overlay = document.getElementById('auth-overlay');
-  const iframe  = document.getElementById('auth-iframe');
-  const fallback= document.getElementById('auth-fallback');
-
-  overlay.classList.add('show');
-  iframe.style.display = 'none';
-  fallback.classList.add('show');
-
-  // Set external link to actual puter.com sign in
-  const extLink = document.getElementById('auth-ext-link');
-  if (extLink) extLink.href = 'https://puter.com';
-}
 
 document.getElementById('signout-btn').addEventListener('click', async () => {
   try {
