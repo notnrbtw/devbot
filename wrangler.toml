@@ -1,0 +1,9 @@
+name = "devbot-ai"
+compatibility_date = "2024-01-01"
+
+[site]
+bucket = "."
+
+[[rules]]
+type = "ESModule"
+globs = ["**/*.js"]

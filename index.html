@@ -1,0 +1,1286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<meta name="description" content="DevBot AI — Multi-provider coding assistant. Code generation, decryption, and security research powered by puter.js.">
+<title>DevBot AI</title>
+<script src="https://js.puter.com/v2/"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,300;0,400;0,500;0,700;1,400&family=Syne:wght@600;700;800&display=swap">
+<style>
+/* ──────────────────────────────── RESET + TOKENS */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; overflow: hidden; }
+
+:root {
+  --bg:        #090c10;
+  --surface:   #0d1117;
+  --surface2:  #161b22;
+  --border:    #21262d;
+  --border2:   #30363d;
+  --text:      #e6edf3;
+  --muted:     #484f58;
+  --muted2:    #8b949e;
+  --input:     #0d1117;
+
+  --a1: #58a6ff;   /* blue   */
+  --a2: #3fb950;   /* green  */
+  --a3: #f85149;   /* red    */
+  --a4: #d29922;   /* gold   */
+  --a5: #bc8cff;   /* purple */
+
+  --glow1: 0 0 20px rgba(88,166,255,.15);
+  --glow2: 0 0 20px rgba(63,185,80,.12);
+
+  --mono: 'JetBrains Mono', 'Cascadia Code', Consolas, monospace;
+  --ui:   'Syne', -apple-system, sans-serif;
+  --sbw:  250px;
+
+  --hdr-h: 52px;
+  --tab-h: 38px;
+  --sbar-h: 22px;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 13px;
+  display: flex;
+  flex-direction: column;
+}
+
+/* subtle grid */
+body::after {
+  content: '';
+  position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background-image:
+    linear-gradient(rgba(88,166,255,.012) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(88,166,255,.012) 1px, transparent 1px);
+  background-size: 48px 48px;
+}
+
+/* ──────────────────────────────── HEADER */
+.hdr {
+  position: relative; z-index: 200;
+  height: var(--hdr-h);
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 20px;
+  background: rgba(9,12,16,.95);
+  border-bottom: 1px solid var(--border);
+  backdrop-filter: blur(12px);
+  flex-shrink: 0;
+}
+
+.logo {
+  display: flex; align-items: center; gap: 10px;
+  font-family: var(--ui); font-weight: 800; font-size: 1.15rem;
+  letter-spacing: -.02em; color: var(--a1);
+  text-shadow: var(--glow1);
+  user-select: none;
+}
+.logo-ring {
+  position: relative; width: 28px; height: 28px; flex-shrink: 0;
+}
+.logo-ring svg { width: 100%; height: 100%; }
+.logo-center {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--a2); box-shadow: 0 0 8px var(--a2);
+  animation: heartbeat 2s ease-in-out infinite;
+}
+@keyframes heartbeat { 0%,100%{transform:translate(-50%,-50%) scale(1);opacity:1} 50%{transform:translate(-50%,-50%) scale(.7);opacity:.5} }
+
+.hdr-center {
+  display: flex; gap: 6px; align-items: center;
+}
+.hdr-pill {
+  font-size: .65rem; padding: 3px 10px; border-radius: 20px;
+  border: 1px solid var(--border2); background: var(--surface2);
+  color: var(--muted2); cursor: pointer; transition: all .15s;
+  font-family: var(--mono); letter-spacing: .03em;
+}
+.hdr-pill:hover { border-color: var(--a1); color: var(--a1); }
+
+.hdr-r { display: flex; align-items: center; gap: 8px; }
+.hbtn {
+  font-family: var(--mono); font-size: .68rem; padding: 5px 12px;
+  border-radius: 5px; border: 1px solid var(--border2);
+  background: transparent; color: var(--muted2); cursor: pointer; transition: all .15s;
+}
+.hbtn:hover { border-color: var(--a1); color: var(--a1); }
+.hbtn.sign-in { border-color: rgba(88,166,255,.4); color: var(--a1); }
+.hbtn.sign-in:hover { background: rgba(88,166,255,.08); }
+#user-pill {
+  display: none; align-items: center; gap: 6px; font-size: .68rem;
+  color: var(--a2); padding: 4px 10px; border: 1px solid rgba(63,185,80,.25);
+  border-radius: 5px; background: rgba(63,185,80,.06);
+}
+#user-pill.show { display: flex; }
+#user-pill .uname { max-width: 100px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ──────────────────────────────── MODE TABS */
+.mode-bar {
+  position: relative; z-index: 100;
+  display: flex; flex-shrink: 0;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  height: var(--tab-h);
+}
+.mtab {
+  flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 0 14px; font-size: .7rem; font-family: var(--mono);
+  letter-spacing: .05em; text-transform: uppercase; color: var(--muted);
+  border: none; background: none; cursor: pointer;
+  border-bottom: 2px solid transparent; transition: all .15s;
+}
+.mtab:hover { color: var(--text); background: rgba(255,255,255,.02); }
+.mtab.active { color: var(--a1); border-bottom-color: var(--a1); background: rgba(88,166,255,.04); }
+.mtab[data-mode=decrypt].active { color: var(--a4); border-bottom-color: var(--a4); }
+
+/* ──────────────────────────────── APP BODY */
+.app {
+  flex: 1; display: flex; overflow: hidden;
+  position: relative; z-index: 5;
+}
+
+/* ──────────────────────────────── SIDEBAR */
+#sb {
+  width: var(--sbw); flex-shrink: 0;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex; flex-direction: column; overflow: hidden;
+  transition: width .2s ease, opacity .2s;
+}
+#sb.collapsed { width: 0; opacity: 0; pointer-events: none; }
+
+.sb-hd {
+  padding: 10px 14px 6px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;
+}
+.sb-hd h3 {
+  font-family: var(--ui); font-weight: 700; font-size: .68rem;
+  letter-spacing: .08em; text-transform: uppercase; color: var(--muted2);
+}
+
+#sb-search {
+  width: calc(100% - 28px); margin: 7px 14px 5px;
+  background: var(--input); border: 1px solid var(--border2); border-radius: 5px;
+  padding: 5px 10px; color: var(--text); font-family: var(--mono); font-size: .7rem;
+  flex-shrink: 0; transition: border-color .15s;
+}
+#sb-search:focus { outline: none; border-color: var(--a1); box-shadow: var(--glow1); }
+#sb-search::placeholder { color: var(--muted); }
+
+.plist { overflow-y: auto; flex: 1; padding: 2px 0 20px; }
+.plist::-webkit-scrollbar { width: 3px; }
+.plist::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+.pg-lbl {
+  font-size: .58rem; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--muted); padding: 10px 14px 3px;
+  font-family: var(--ui); font-weight: 700;
+}
+.pbtn {
+  width: 100%; display: flex; align-items: center; gap: 8px;
+  padding: 5px 14px; border: none; background: none; cursor: pointer;
+  text-align: left; font-family: var(--mono); transition: background .1s;
+  border-left: 2px solid transparent;
+}
+.pbtn:hover { background: rgba(88,166,255,.05); }
+.pbtn.active { background: rgba(88,166,255,.08); border-left-color: var(--a1); }
+.pbtn.active .pb-name { color: var(--a1); }
+.pb-ico { font-size: .9rem; width: 22px; text-align: center; flex-shrink: 0; }
+.pb-info { flex: 1; min-width: 0; }
+.pb-name { font-size: .72rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pb-sub  { font-size: .6rem; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pb-badge { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+.pb-badge.ok  { background: var(--a2); box-shadow: 0 0 4px var(--a2); }
+.pb-badge.no  { background: var(--border2); }
+.pb-tag { font-size: .52rem; padding: 1px 5px; border-radius: 3px; flex-shrink: 0; }
+.tag-n { background: rgba(88,166,255,.1); color: var(--a1); border: 1px solid rgba(88,166,255,.2); }
+.tag-k { background: rgba(210,153,34,.08); color: var(--a4); border: 1px solid rgba(210,153,34,.2); }
+
+/* ──────────────────────────────── CHAT PANEL */
+.chat { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
+
+/* Provider bar */
+.ptb {
+  padding: 7px 14px; border-bottom: 1px solid var(--border);
+  background: var(--surface2); display: flex; align-items: center; gap: 10px;
+  flex-shrink: 0; min-height: 42px;
+}
+.ptb-ico { font-size: 1.1rem; flex-shrink: 0; }
+.ptb-info { flex: 1; min-width: 0; }
+.ptb-name { font-size: .76rem; font-family: var(--ui); font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ptb-model { font-size: .62rem; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ptb-r { display: flex; gap: 6px; align-items: center; flex-shrink: 0; }
+
+.ks {
+  font-size: .62rem; padding: 3px 9px; border-radius: 4px;
+  border: 1px solid var(--border); color: var(--muted); white-space: nowrap;
+  display: flex; align-items: center; gap: 4px;
+}
+.ks.ok   { border-color: rgba(63,185,80,.3); color: var(--a2); background: rgba(63,185,80,.06); }
+.ks.need { border-color: rgba(210,153,34,.3); color: var(--a4); cursor: pointer; }
+.ks.need:hover { background: rgba(210,153,34,.08); }
+.ks.native { border-color: rgba(88,166,255,.3); color: var(--a1); background: rgba(88,166,255,.06); }
+
+/* Key banner */
+.key-banner {
+  margin: 8px 14px; padding: 10px 14px;
+  background: rgba(210,153,34,.06); border: 1px solid rgba(210,153,34,.25);
+  border-radius: 6px; font-size: .72rem;
+  display: none; flex-direction: column; gap: 8px;
+}
+.key-banner.show { display: flex; }
+.key-banner p { color: var(--text); line-height: 1.6; }
+.key-row { display: flex; gap: 6px; align-items: center; }
+.key-row input {
+  flex: 1; background: var(--input); border: 1px solid var(--border2); border-radius: 4px;
+  padding: 6px 10px; color: var(--text); font-family: var(--mono); font-size: .72rem;
+}
+.key-row input:focus { outline: none; border-color: var(--a1); }
+.kbtn {
+  font-family: var(--mono); font-size: .68rem; padding: 5px 12px;
+  border-radius: 4px; border: 1px solid var(--border); background: transparent;
+  color: var(--muted); cursor: pointer; transition: all .15s; white-space: nowrap;
+}
+.kbtn:hover { border-color: var(--a1); color: var(--a1); }
+.kbtn.save { background: var(--a2); color: #000; border-color: var(--a2); font-weight: 700; }
+.kbtn.save:hover { opacity: .85; }
+
+/* Messages */
+#msgs {
+  flex: 1; overflow-y: auto; padding: 14px;
+  display: flex; flex-direction: column; gap: 12px; scroll-behavior: smooth;
+}
+#msgs::-webkit-scrollbar { width: 4px; }
+#msgs::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+/* Welcome */
+.welcome {
+  max-width: 540px; margin: 20px auto; padding: 24px;
+  border: 1px solid var(--border); border-radius: 10px;
+  background: var(--surface2); text-align: center;
+  animation: fadeUp .35s ease both;
+}
+.welcome h2 { font-family: var(--ui); font-size: 1.2rem; font-weight: 800; color: var(--a1); text-shadow: var(--glow1); margin-bottom: 8px; }
+.welcome p  { font-size: .75rem; color: var(--muted2); line-height: 1.7; }
+.wstats { display: flex; gap: 20px; justify-content: center; margin: 14px 0; }
+.wstat { text-align: center; }
+.wstat-n { font-size: 1.1rem; font-weight: 800; color: var(--a1); font-family: var(--ui); }
+.wstat-l { font-size: .6rem; color: var(--muted); text-transform: uppercase; letter-spacing: .07em; }
+.wfeats { display: flex; flex-direction: column; gap: 4px; text-align: left; margin-top: 12px; }
+.wfeat { font-size: .68rem; color: var(--muted2); background: rgba(88,166,255,.04); border: 1px solid rgba(88,166,255,.08); border-radius: 4px; padding: 5px 10px; }
+.wfeat strong { color: var(--a1); }
+@keyframes fadeUp { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:none} }
+
+/* Messages */
+.msg { display: flex; gap: 9px; max-width: 840px; width: 100%; animation: fadeUp .2s ease both; }
+.msg.user      { align-self: flex-end; flex-direction: row-reverse; }
+.msg.assistant { align-self: flex-start; }
+
+.msg-av {
+  width: 26px; height: 26px; border-radius: 5px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: .8rem; margin-top: 2px; border: 1px solid var(--border);
+}
+.msg.user      .msg-av { background: rgba(63,185,80,.08); color: var(--a2); border-color: rgba(63,185,80,.2); }
+.msg.assistant .msg-av { background: rgba(88,166,255,.07); color: var(--a1); border-color: rgba(88,166,255,.18); }
+
+.msg-bub {
+  padding: 9px 13px; border-radius: 7px; font-size: .78rem; line-height: 1.75;
+  max-width: 740px; border: 1px solid var(--border); word-break: break-word;
+}
+.msg.user      .msg-bub { background: rgba(63,185,80,.05); border-color: rgba(63,185,80,.14); }
+.msg.assistant .msg-bub { background: var(--surface2); }
+
+.msg-bub p   { margin-bottom: 5px; }
+.msg-bub p:last-child { margin-bottom: 0; }
+.msg-bub ul, .msg-bub ol { padding-left: 17px; margin: 4px 0; }
+.msg-bub li  { margin-bottom: 2px; }
+.msg-bub h1,.msg-bub h2,.msg-bub h3 { font-family: var(--ui); margin: 8px 0 4px; color: var(--a1); font-weight: 700; }
+.msg-bub strong { color: var(--text); font-weight: 600; }
+.msg-bub em     { color: var(--a4); font-style: italic; }
+.msg-bub a      { color: var(--a1); cursor: pointer; text-decoration: underline; }
+.msg-bub code {
+  font-family: var(--mono); background: rgba(88,166,255,.08);
+  border: 1px solid rgba(88,166,255,.14); border-radius: 3px;
+  padding: 1px 4px; font-size: .74rem; color: var(--a1);
+}
+.msg-bub pre code { background: none; border: none; padding: 0; color: inherit; }
+
+/* Code block */
+.code-wrap { position: relative; margin: 7px 0; }
+.code-wrap pre {
+  background: rgba(0,0,0,.45); border: 1px solid var(--border); border-radius: 6px;
+  padding: 28px 12px 12px; overflow-x: auto; font-size: .72rem;
+  line-height: 1.6; font-family: var(--mono);
+}
+.code-hd {
+  position: absolute; top: 0; left: 0; right: 0;
+  display: flex; align-items: center; padding: 5px 10px; gap: 6px;
+  background: rgba(255,255,255,.03); border-bottom: 1px solid var(--border);
+  border-radius: 6px 6px 0 0;
+}
+.code-lang { font-size: .62rem; color: var(--muted); font-family: var(--mono); flex: 1; }
+.cbtn {
+  font-size: .6rem; padding: 2px 7px; border-radius: 3px;
+  border: 1px solid var(--border); background: transparent;
+  color: var(--muted); cursor: pointer; font-family: var(--mono); transition: all .12s;
+}
+.cbtn:hover { color: var(--a1); border-color: var(--a1); }
+.cbtn.ins { color: var(--a2); border-color: rgba(63,185,80,.3); }
+.cbtn.ins:hover { background: rgba(63,185,80,.08); }
+
+/* Typing indicator */
+.ti { display: flex; gap: 4px; padding: 5px 0; }
+.ti span { width: 5px; height: 5px; border-radius: 50%; background: var(--a1); opacity: .3; animation: blink 1.3s ease-in-out infinite; }
+.ti span:nth-child(2){animation-delay:.22s} .ti span:nth-child(3){animation-delay:.44s}
+@keyframes blink{0%,80%,100%{opacity:.3}40%{opacity:.9}}
+
+/* Error */
+.msg-err {
+  font-size: .74rem; color: var(--a3); padding: 9px 13px;
+  background: rgba(248,81,73,.08); border: 1px solid rgba(248,81,73,.25);
+  border-radius: 6px;
+}
+
+/* File zone */
+#file-zone {
+  margin: 0 14px 7px; border: 1px dashed var(--border2); border-radius: 5px;
+  padding: 6px 12px; font-size: .7rem; color: var(--muted);
+  display: none; align-items: center; gap: 8px; background: rgba(0,0,0,.1); flex-shrink: 0;
+}
+#file-zone.show { display: flex; }
+#file-zone label { font-size: .68rem; padding: 3px 9px; border: 1px solid var(--border2); border-radius: 4px; cursor: pointer; transition: all .15s; color: var(--text); }
+#file-zone label:hover { border-color: var(--a1); color: var(--a1); }
+#file-input { display: none; }
+#file-name  { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--a4); }
+
+/* Pills */
+.ctx-bar { padding: 0 14px 7px; display: flex; gap: 5px; flex-wrap: wrap; flex-shrink: 0; }
+.pill {
+  font-size: .63rem; padding: 3px 9px; border-radius: 20px;
+  border: 1px solid var(--border); color: var(--muted);
+  cursor: pointer; background: transparent; transition: all .15s;
+}
+.pill:hover { border-color: var(--a1); color: var(--a1); background: rgba(88,166,255,.04); }
+
+/* Input bar */
+.input-bar {
+  padding: 9px 14px 12px; background: rgba(9,12,16,.95);
+  border-top: 1px solid var(--border); display: flex; gap: 8px; align-items: flex-end; flex-shrink: 0;
+  backdrop-filter: blur(10px);
+}
+#prompt {
+  flex: 1; background: var(--surface2); border: 1px solid var(--border2); border-radius: 6px;
+  padding: 8px 12px; color: var(--text); font-family: var(--mono); font-size: .78rem;
+  resize: none; min-height: 38px; max-height: 130px; line-height: 1.5;
+  transition: border-color .15s; overflow-y: auto;
+}
+#prompt:focus { outline: none; border-color: var(--a1); box-shadow: var(--glow1); }
+#prompt::placeholder { color: var(--muted); }
+#send-btn {
+  width: 38px; height: 38px; border-radius: 6px; background: var(--a1);
+  border: none; cursor: pointer; color: #000; font-size: .9rem; font-weight: 700;
+  transition: all .15s; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+#send-btn:hover { box-shadow: var(--glow1); transform: scale(1.04); }
+#send-btn:disabled { opacity: .35; cursor: not-allowed; transform: none; }
+body.mode-decrypt #send-btn { background: var(--a4); }
+body.mode-decrypt #prompt:focus { border-color: var(--a4); }
+
+/* Sidebar toggle */
+#sb-toggle {
+  background: none; border: 1px solid var(--border2); border-radius: 4px;
+  color: var(--muted); font-size: .8rem; cursor: pointer;
+  width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;
+  transition: all .15s;
+}
+#sb-toggle:hover { border-color: var(--a1); color: var(--a1); }
+
+/* Status bar */
+.sbar {
+  height: var(--sbar-h); background: rgba(88,166,255,.03);
+  border-top: 1px solid rgba(88,166,255,.07);
+  display: flex; align-items: center; padding: 0 14px; gap: 14px;
+  font-size: .62rem; color: var(--muted); flex-shrink: 0;
+}
+.sbar span { display: flex; align-items: center; gap: 4px; }
+.sdot { width: 5px; height: 5px; border-radius: 50%; background: var(--a2); box-shadow: 0 0 4px var(--a2); }
+.sdot.off { background: var(--muted); box-shadow: none; }
+#s-prov { color: var(--a1); }
+
+/* ──────────────────────────────── AUTH OVERLAY (for puter.js popup fix) */
+#auth-overlay {
+  position: fixed; inset: 0; z-index: 9999;
+  background: rgba(0,0,0,.8); backdrop-filter: blur(6px);
+  display: none; align-items: center; justify-content: center;
+}
+#auth-overlay.show { display: flex; }
+.auth-modal {
+  background: var(--surface2); border: 1px solid var(--border2);
+  border-radius: 10px; overflow: hidden;
+  width: min(480px, 90vw); height: min(600px, 85vh);
+  display: flex; flex-direction: column;
+  box-shadow: 0 20px 60px rgba(0,0,0,.6);
+}
+.auth-modal-hd {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 14px; border-bottom: 1px solid var(--border);
+  background: var(--surface); flex-shrink: 0;
+}
+.auth-modal-hd span { font-size: .75rem; color: var(--muted2); }
+#auth-close {
+  background: none; border: 1px solid var(--border); border-radius: 3px;
+  color: var(--muted); cursor: pointer; padding: 3px 8px; font-size: .7rem;
+}
+#auth-close:hover { color: var(--a3); border-color: var(--a3); }
+#auth-iframe { flex: 1; border: none; width: 100%; }
+.auth-fallback {
+  padding: 20px; text-align: center; display: none; flex-direction: column; gap: 12px;
+}
+.auth-fallback.show { display: flex; }
+.auth-fallback p { font-size: .75rem; color: var(--muted2); line-height: 1.6; }
+.auth-fallback a { color: var(--a1); }
+
+/* ──────────────────────────────── RESPONSIVE */
+* { scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
+
+@media (max-width: 720px) {
+  :root { --sbw: 200px; }
+  #sb { position: absolute; top: 0; bottom: 0; left: 0; z-index: 50; height: 100%; }
+  .hdr-center { display: none; }
+}
+@media (max-width: 480px) {
+  :root { --hdr-h: 44px; }
+  .logo span { display: none; }
+}
+</style>
+</head>
+<body class="mode-code">
+
+<!-- AUTH OVERLAY — traps puter.js auth popup in-page -->
+<div id="auth-overlay">
+  <div class="auth-modal">
+    <div class="auth-modal-hd">
+      <span>🔐 Sign in to puter.com</span>
+      <button id="auth-close">✕ Cancel</button>
+    </div>
+    <iframe id="auth-iframe" allow="same-origin" sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-top-navigation"></iframe>
+    <div class="auth-fallback" id="auth-fallback">
+      <p>The sign-in page couldn't load in the embedded frame.<br>
+         <a id="auth-ext-link" href="https://puter.com" target="_blank">Click here to sign in at puter.com ↗</a><br>
+         then come back and refresh.</p>
+    </div>
+  </div>
+</div>
+
+<!-- HEADER -->
+<div class="hdr">
+  <div style="display:flex;align-items:center;gap:10px">
+    <button id="sb-toggle" title="Toggle providers">☰</button>
+    <div class="logo">
+      <div class="logo-ring">
+        <svg viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M14 2L24.39 8V20L14 26L3.61 20V8Z" stroke="#58a6ff" stroke-width="1.5" stroke-linejoin="round" opacity=".8"/>
+          <path d="M14 2L24.39 8V20L14 26L3.61 20V8Z" stroke="#58a6ff" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="4 3" opacity=".3"/>
+        </svg>
+        <div class="logo-center"></div>
+      </div>
+      <span>DevBot AI</span>
+    </div>
+  </div>
+  <div class="hdr-center">
+    <button class="hdr-pill" onclick="document.getElementById('prompt').focus()">⌨ Code</button>
+    <button class="hdr-pill" onclick="setMode('decrypt')">🔓 Decrypt</button>
+  </div>
+  <div class="hdr-r">
+    <div id="user-pill">
+      <span>●</span>
+      <span class="uname" id="uname"></span>
+      <button class="hbtn" id="signout-btn" style="padding:2px 6px;font-size:.6rem">out</button>
+    </div>
+    <button class="hbtn sign-in" id="signin-btn">Sign In</button>
+    <button class="hbtn" id="clear-btn">+ New Chat</button>
+  </div>
+</div>
+
+<!-- MODE TABS -->
+<div class="mode-bar">
+  <button class="mtab active" data-mode="code">⌨ Code Generation</button>
+  <button class="mtab" data-mode="decrypt">🔓 Decode / Decrypt</button>
+</div>
+
+<!-- APP -->
+<div class="app">
+
+  <!-- Provider Sidebar -->
+  <div id="sb">
+    <div class="sb-hd">
+      <h3>AI Providers</h3>
+      <span style="font-size:.62rem;color:var(--muted)" id="sb-count">8</span>
+    </div>
+    <input id="sb-search" type="text" placeholder="Search…">
+    <div class="plist" id="plist"></div>
+  </div>
+
+  <!-- Chat -->
+  <div class="chat">
+
+    <!-- Active provider bar -->
+    <div class="ptb">
+      <div class="ptb-ico" id="ptb-ico">🟤</div>
+      <div class="ptb-info">
+        <div class="ptb-name" id="ptb-name">Anthropic · Claude Sonnet</div>
+        <div class="ptb-model" id="ptb-model">claude-sonnet-4-20250514 · puter.js native</div>
+      </div>
+      <div class="ptb-r">
+        <span class="ks" id="ks-badge">● puter.js</span>
+        <a id="ptb-docs" href="#" target="_blank" style="font-size:.62rem;color:var(--muted);text-decoration:none" title="Provider docs">↗ docs</a>
+      </div>
+    </div>
+
+    <!-- Key banner -->
+    <div class="key-banner" id="key-banner">
+      <p>No API key for <strong id="kb-name">this provider</strong>. Paste your key below — it's stored securely in puter.js KV.</p>
+      <div class="key-row">
+        <input type="password" id="kb-input" placeholder="sk-… or api key…">
+        <button class="kbtn save" id="kb-save-btn">Save Key</button>
+        <button class="kbtn" id="kb-docs-btn">Get Key ↗</button>
+      </div>
+    </div>
+
+    <!-- Messages -->
+    <div id="msgs">
+      <div class="welcome" id="wb">
+        <h2>🤖 DevBot AI</h2>
+        <p>AI coding assistant powered by puter.js. Code generation, debugging, and decryption across 8 AI providers — all in your browser.</p>
+        <div class="wstats">
+          <div class="wstat"><div class="wstat-n">8</div><div class="wstat-l">Providers</div></div>
+          <div class="wstat"><div class="wstat-n">2</div><div class="wstat-l">Modes</div></div>
+          <div class="wstat"><div class="wstat-n">puter.js</div><div class="wstat-l">Backend</div></div>
+        </div>
+        <div class="wfeats">
+          <div class="wfeat">📂 <strong>Upload files</strong> — attach code or encoded data directly</div>
+          <div class="wfeat">↑ <strong>Copy code blocks</strong> — one-click copy on every response</div>
+          <div class="wfeat">💾 <strong>Persistent history</strong> — conversations saved per provider via puter.js</div>
+          <div class="wfeat">🔑 <strong>API keys encrypted</strong> — stored in puter.js KV, never sent anywhere else</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- File upload (decrypt mode) -->
+    <div id="file-zone">
+      <label for="file-input">📎 Attach File</label>
+      <input type="file" id="file-input">
+      <span id="file-name">No file attached</span>
+      <button id="clear-file" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:.9rem" title="Remove">✕</button>
+    </div>
+
+    <!-- Quick prompts -->
+    <div class="ctx-bar" id="ctx-bar"></div>
+
+    <!-- Input row -->
+    <div class="input-bar">
+      <textarea id="prompt" rows="1" placeholder="Ask anything… (Shift+Enter = new line, Enter = send)"></textarea>
+      <button id="send-btn" title="Send (Enter)">▶</button>
+    </div>
+  </div>
+</div>
+
+<!-- Status bar -->
+<div class="sbar">
+  <span><div class="sdot" id="s-dot"></div> puter.js</span>
+  <span id="s-prov">Anthropic</span>
+  <span id="s-mode">code-gen</span>
+  <span id="s-route">native</span>
+  <span style="margin-left:auto;color:var(--muted)">DevBot AI v2.0</span>
+</div>
+
+<script>
+// ════════════════════════════════════════════════════════════
+// PUTER.JS AUTH FIX — intercept window.open BEFORE puter loads
+// so the sign-in popup appears as an in-page overlay
+// ════════════════════════════════════════════════════════════
+(function() {
+  const _open = window.open.bind(window);
+  let fakeWinRef = null;
+
+  window.open = function(url, name, features) {
+    if (!url) return _open(url, name, features);
+    const urlStr = String(url);
+
+    // Only intercept puter.com auth popups
+    if (urlStr.includes('puter.com') && (urlStr.includes('login') || urlStr.includes('auth') || urlStr.includes('sign'))) {
+      showAuthOverlay(urlStr);
+
+      // Return a fake window so puter.js doesn't throw
+      const fakeWin = {
+        closed: false,
+        location: { href: urlStr },
+        focus: function() {},
+        close: function() { hideAuthOverlay(); this.closed = true; },
+        postMessage: function(data, origin) {
+          const iframe = document.getElementById('auth-iframe');
+          try { iframe?.contentWindow?.postMessage(data, origin || '*'); } catch(e){}
+        }
+      };
+      fakeWinRef = fakeWin;
+      return fakeWin;
+    }
+
+    // Everything else — open normally
+    return _open(url, name, features);
+  };
+
+  function showAuthOverlay(url) {
+    const overlay = document.getElementById('auth-overlay');
+    const iframe  = document.getElementById('auth-iframe');
+    const fallback= document.getElementById('auth-fallback');
+    const extLink = document.getElementById('auth-ext-link');
+
+    if (extLink) extLink.href = url;
+    overlay.classList.add('show');
+    iframe.style.display = 'block';
+    fallback.classList.remove('show');
+
+    iframe.onload = function() {
+      // Check if iframe loaded correctly
+      try {
+        // If we can access contentDocument it loaded; if not → CORS blocked
+        const _ = iframe.contentDocument;
+      } catch(e) {
+        // CORS error = loaded on puter.com = good (auth page is there)
+      }
+    };
+
+    iframe.onerror = function() {
+      // Blocked — show fallback
+      iframe.style.display = 'none';
+      fallback.classList.add('show');
+    };
+
+    iframe.src = url;
+  }
+
+  function hideAuthOverlay() {
+    const overlay = document.getElementById('auth-overlay');
+    const iframe  = document.getElementById('auth-iframe');
+    overlay.classList.remove('show');
+    iframe.src = 'about:blank';
+    if (fakeWinRef) { fakeWinRef.closed = true; fakeWinRef = null; }
+  }
+
+  // Relay postMessages FROM the iframe TO puter.js handlers
+  window.addEventListener('message', function(e) {
+    // puter.js listens for its own auth messages on window
+    // We just re-dispatch anything from the iframe
+    if (e.source === document.getElementById('auth-iframe')?.contentWindow) {
+      // Auth completed — close overlay after brief delay
+      if (e.data && (e.data.type === 'puter:auth' || e.data.token || e.data.success || e.data.key)) {
+        setTimeout(hideAuthOverlay, 600);
+      }
+    }
+  });
+
+  document.addEventListener('DOMContentLoaded', function() {
+    document.getElementById('auth-close').addEventListener('click', hideAuthOverlay);
+    document.getElementById('auth-overlay').addEventListener('click', function(e) {
+      if (e.target === this) hideAuthOverlay();
+    });
+  });
+
+  window.__hideAuthOverlay = hideAuthOverlay;
+})();
+</script>
+
+<script src="https://js.puter.com/v2/"></script>
+
+<script>
+// ════════════════════════════════════════════════════════════
+// PROVIDER REGISTRY — coding providers only
+// ════════════════════════════════════════════════════════════
+const PROVIDERS = [
+  // puter.js native — no API key needed (routed through puter.ai)
+  { id:'anthropic',  name:'Anthropic',    icon:'🟤', model:'claude-sonnet-4-20250514',                         routing:'puter', docsUrl:'https://console.anthropic.com/settings/keys',  desc:'Claude Sonnet — best reasoning, code generation, and analysis' },
+  { id:'openai',     name:'OpenAI',       icon:'⬡',  model:'gpt-4o',                                           routing:'puter', docsUrl:'https://platform.openai.com/api-keys',          desc:'GPT-4o — broad capability, fast, great at structured output' },
+  { id:'mistral',    name:'Mistral AI',   icon:'🌀', model:'mistral-large-latest',                             routing:'puter', docsUrl:'https://console.mistral.ai/api-keys/',          desc:'Mistral Large 2 — multilingual, excellent at code and math' },
+  { id:'together',   name:'Together AI',  icon:'⚡', model:'meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo',    routing:'puter', docsUrl:'https://api.together.xyz/settings/api-keys',     desc:'Llama 3.1 70B Turbo — fast open-source inference' },
+  // Direct API — key required, stored in puter.kv
+  { id:'fireworks',  name:'Fireworks AI', icon:'🎆', model:'accounts/fireworks/models/llama-v3p1-70b-instruct',routing:'direct',docsUrl:'https://fireworks.ai/account/api-keys',          apiBase:'https://api.fireworks.ai/inference/v1/chat/completions',  authHeader:'Authorization',authPrefix:'Bearer ', bodyModel:'accounts/fireworks/models/llama-v3p1-70b-instruct', desc:'Llama 70B via Fireworks — high throughput, low latency' },
+  { id:'cohere',     name:'Cohere',       icon:'🔷', model:'command-r-plus',                                   routing:'direct',docsUrl:'https://dashboard.cohere.com/api-keys',          apiBase:'https://api.cohere.com/v1/chat',                          authHeader:'Authorization',authPrefix:'Bearer ', bodyModel:'command-r-plus',                                     desc:'Command R+ — RAG-optimised, excels at multi-step reasoning' },
+  { id:'sambanova',  name:'SambaNova',    icon:'🔴', model:'Meta-Llama-3.1-70B-Instruct',                     routing:'direct',docsUrl:'https://cloud.sambanova.ai/',                    apiBase:'https://api.sambanova.ai/v1/chat/completions',            authHeader:'Authorization',authPrefix:'Bearer ', bodyModel:'Meta-Llama-3.1-70B-Instruct',                        desc:'Llama 3.1 70B on custom silicon — extremely fast inference' },
+  { id:'perplexity', name:'Perplexity',   icon:'🔍', model:'llama-3.1-sonar-large-128k-online',               routing:'direct',docsUrl:'https://www.perplexity.ai/settings/api',          apiBase:'https://api.perplexity.ai/chat/completions',              authHeader:'Authorization',authPrefix:'Bearer ', bodyModel:'llama-3.1-sonar-large-128k-online',                  desc:'Sonar — LLM with live web search for up-to-date answers' },
+];
+
+const CATS_PUTER  = 'Native (no key)';
+const CATS_DIRECT = 'API Key Required';
+
+const PILLS = {
+  code:    ['Explain this code', 'Fix the bug', 'Write unit tests', 'Refactor for clarity', 'Add error handling', 'Optimize performance', 'Add TypeScript types', 'Write a regex for…'],
+  decrypt: ['Identify this encoding', 'Decode Base64 string', 'Decode JWT payload', 'Find the XOR key', 'Hex → ASCII', 'URL decode this', 'Identify cipher type'],
+};
+
+const SYSTEM = {
+  code:    'You are DevBot, an expert coding assistant. Write clean, production-ready code. Always use fenced code blocks with the correct language tag. Include error handling unless told otherwise. Be concise but complete.',
+  decrypt: 'You are DevBot, a cryptography and encoding expert. Identify encryption or encoding schemes (AES, RSA, Base64, XOR, JWT, MD5, SHA-*, Hex, ROT13, Vigenère, URL encoding, etc.), decode data when possible, and write decryption scripts. Always explain what you found.',
+};
+
+// ════════════════════════════════════════════════════════════
+// STATE
+// ════════════════════════════════════════════════════════════
+let mode     = 'code';
+let curId    = 'anthropic';
+let convs    = {};   // provId_mode -> [{role,content}]
+let apiKeys  = {};   // provId -> string
+let upFile   = null;
+let upText   = null;
+let busy     = false;
+let sbOpen   = true;
+let puterOk  = false;
+
+function cur()  { return PROVIDERS.find(p => p.id === curId) || PROVIDERS[0]; }
+function ck()   { return curId + '_' + mode; }
+
+// ════════════════════════════════════════════════════════════
+// PUTER.JS INIT
+// ════════════════════════════════════════════════════════════
+function waitPuter(cb, n) {
+  n = n || 0;
+  if (typeof puter !== 'undefined') { puterOk = true; cb(); return; }
+  if (n > 80) { console.warn('puter.js timed out'); return; }
+  setTimeout(() => waitPuter(cb, n + 1), 150);
+}
+
+waitPuter(async () => {
+  document.getElementById('s-dot').classList.remove('off');
+  await checkAuth();
+  await loadKeys();
+  refreshSB();
+});
+
+// ════════════════════════════════════════════════════════════
+// AUTH
+// ════════════════════════════════════════════════════════════
+async function checkAuth() {
+  try {
+    const u = await puter.auth.getUser();
+    if (u) showUser(u);
+  } catch (_) {}
+}
+
+function showUser(u) {
+  const name = u.username || u.email || 'user';
+  document.getElementById('uname').textContent = name;
+  document.getElementById('user-pill').classList.add('show');
+  document.getElementById('signin-btn').style.display = 'none';
+}
+
+document.getElementById('signin-btn').addEventListener('click', async () => {
+  try {
+    await puter.auth.signIn();
+    const u = await puter.auth.getUser();
+    showUser(u);
+    // Hide auth overlay if it was showing
+    window.__hideAuthOverlay?.();
+    await loadKeys();
+    refreshSB();
+  } catch (e) {
+    console.warn('Auth cancelled or failed', e);
+  }
+});
+
+document.getElementById('signout-btn').addEventListener('click', async () => {
+  try {
+    await puter.auth.signOut();
+    document.getElementById('user-pill').classList.remove('show');
+    document.getElementById('signin-btn').style.display = '';
+    apiKeys = {};
+    refreshSB();
+  } catch (_) {}
+});
+
+// ════════════════════════════════════════════════════════════
+// PUTER.KV KEY STORAGE
+// ════════════════════════════════════════════════════════════
+async function loadKeys() {
+  for (const p of PROVIDERS.filter(x => x.routing === 'direct')) {
+    try {
+      const v = await puter.kv.get('dbk_' + p.id);
+      if (v) apiKeys[p.id] = v;
+    } catch (_) {}
+  }
+}
+
+async function saveKey(providerId, key) {
+  apiKeys[providerId] = key;
+  try { await puter.kv.set('dbk_' + providerId, key); } catch (_) {}
+}
+
+// ════════════════════════════════════════════════════════════
+// PROVIDER SIDEBAR
+// ════════════════════════════════════════════════════════════
+function renderSB(q) {
+  q = (q || '').toLowerCase();
+  const list = document.getElementById('plist');
+  list.innerHTML = '';
+
+  const filtered = q
+    ? PROVIDERS.filter(p => p.name.toLowerCase().includes(q) || p.model.toLowerCase().includes(q) || p.desc.toLowerCase().includes(q))
+    : PROVIDERS;
+
+  document.getElementById('sb-count').textContent = filtered.length;
+
+  // Group
+  const native = filtered.filter(p => p.routing === 'puter');
+  const direct = filtered.filter(p => p.routing === 'direct');
+
+  [{ label: CATS_PUTER, items: native }, { label: CATS_DIRECT, items: direct }].forEach(group => {
+    if (!group.items.length) return;
+    const lbl = document.createElement('div');
+    lbl.className = 'pg-lbl';
+    lbl.textContent = group.label;
+    list.appendChild(lbl);
+
+    group.items.forEach(p => {
+      const ok = p.routing === 'puter' || !!apiKeys[p.id];
+      const btn = document.createElement('button');
+      btn.className = 'pbtn' + (p.id === curId ? ' active' : '');
+      btn.dataset.id = p.id;
+      btn.title = p.desc;
+      btn.innerHTML =
+        '<span class="pb-ico">' + p.icon + '</span>' +
+        '<div class="pb-info">' +
+          '<div class="pb-name">' + esc(p.name) + '</div>' +
+          '<div class="pb-sub">' + esc(p.model.split('/').pop().slice(0, 28)) + '</div>' +
+        '</div>' +
+        '<span class="pb-tag ' + (p.routing === 'puter' ? 'tag-n' : 'tag-k') + '">' + (p.routing === 'puter' ? 'free' : 'key') + '</span>' +
+        '<div class="pb-badge ' + (ok ? 'ok' : 'no') + '" title="' + (ok ? 'Ready' : 'Key needed') + '"></div>';
+      btn.addEventListener('click', () => selProvider(p));
+      list.appendChild(btn);
+    });
+  });
+}
+
+function refreshSB() { renderSB(document.getElementById('sb-search').value); }
+document.getElementById('sb-search').addEventListener('input', e => renderSB(e.target.value));
+
+// ════════════════════════════════════════════════════════════
+// SELECT PROVIDER
+// ════════════════════════════════════════════════════════════
+function selProvider(p) {
+  curId = p.id;
+  document.querySelectorAll('.pbtn').forEach(b => b.classList.toggle('active', b.dataset.id === p.id));
+
+  document.getElementById('ptb-ico').textContent   = p.icon;
+  document.getElementById('ptb-name').textContent  = p.name + ' · ' + p.model.split('/').pop().slice(0, 28);
+  document.getElementById('ptb-model').textContent = p.model + (p.routing === 'puter' ? ' · puter.js native' : ' · direct API');
+  document.getElementById('ptb-docs').href = p.docsUrl;
+  document.getElementById('s-prov').textContent    = p.name;
+  document.getElementById('s-route').textContent   = p.routing === 'puter' ? 'native' : 'direct';
+
+  const ks = document.getElementById('ks-badge');
+  if (p.routing === 'puter') {
+    ks.textContent = '● puter.js';
+    ks.className = 'ks native';
+    ks.onclick = null;
+  } else if (apiKeys[p.id]) {
+    ks.textContent = '● key saved';
+    ks.className = 'ks ok';
+    ks.onclick = null;
+  } else {
+    ks.textContent = '⚠ add key';
+    ks.className = 'ks need';
+    ks.onclick = () => openKeyBanner();
+  }
+
+  refreshKeyBanner(p);
+  renderPills();
+}
+
+function openKeyBanner() {
+  document.getElementById('key-banner').classList.add('show');
+  document.getElementById('kb-input').focus();
+}
+
+function refreshKeyBanner(p) {
+  p = p || cur();
+  const needKey = p.routing === 'direct' && !apiKeys[p.id];
+  document.getElementById('key-banner').classList.toggle('show', needKey);
+  document.getElementById('kb-name').textContent = p.name;
+  document.getElementById('kb-docs-btn').onclick = () => window.open(p.docsUrl, '_blank');
+}
+
+document.getElementById('kb-save-btn').addEventListener('click', async () => {
+  const key = document.getElementById('kb-input').value.trim();
+  if (!key) return;
+  await saveKey(curId, key);
+  document.getElementById('kb-input').value = '';
+  refreshSB();
+  selProvider(cur());
+  appendAssistant('✅ API key for **' + cur().name + '** saved securely in puter.js KV storage.');
+});
+
+document.getElementById('kb-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') document.getElementById('kb-save-btn').click();
+});
+
+// ════════════════════════════════════════════════════════════
+// MODE
+// ════════════════════════════════════════════════════════════
+function setMode(m) {
+  mode = m;
+  document.body.className = 'mode-' + m;
+  document.querySelectorAll('.mtab').forEach(t => t.classList.toggle('active', t.dataset.mode === m));
+  document.getElementById('s-mode').textContent = m;
+  const phs = {
+    code:    'Ask about code, paste a snippet, describe what you need…',
+    decrypt: 'Paste ciphertext, encoded data, or ask about any encoding scheme…'
+  };
+  document.getElementById('prompt').placeholder = phs[m] || '';
+  document.getElementById('file-zone').classList.toggle('show', m === 'decrypt');
+  renderPills();
+}
+document.querySelectorAll('.mtab').forEach(t => t.addEventListener('click', () => setMode(t.dataset.mode)));
+
+// ════════════════════════════════════════════════════════════
+// SIDEBAR TOGGLE
+// ════════════════════════════════════════════════════════════
+document.getElementById('sb-toggle').addEventListener('click', () => {
+  sbOpen = !sbOpen;
+  document.getElementById('sb').classList.toggle('collapsed', !sbOpen);
+});
+
+// ════════════════════════════════════════════════════════════
+// FILE UPLOAD
+// ════════════════════════════════════════════════════════════
+document.getElementById('file-input').addEventListener('change', async () => {
+  const f = document.getElementById('file-input').files[0];
+  if (!f) return;
+  upFile = f;
+  document.getElementById('file-name').textContent = f.name + ' (' + (f.size / 1024).toFixed(1) + ' KB)';
+  upText = await f.text().catch(() => null);
+});
+document.getElementById('clear-file').addEventListener('click', () => {
+  upFile = null; upText = null;
+  document.getElementById('file-name').textContent = 'No file attached';
+  document.getElementById('file-input').value = '';
+});
+
+// ════════════════════════════════════════════════════════════
+// QUICK PILLS
+// ════════════════════════════════════════════════════════════
+function renderPills() {
+  const bar = document.getElementById('ctx-bar');
+  bar.innerHTML = '';
+  (PILLS[mode] || []).forEach(label => {
+    const b = document.createElement('button');
+    b.className = 'pill';
+    b.textContent = label;
+    b.onclick = () => { document.getElementById('prompt').value = label; document.getElementById('prompt').focus(); };
+    bar.appendChild(b);
+  });
+}
+
+// ════════════════════════════════════════════════════════════
+// MARKDOWN + CODE BLOCK RENDERER
+// ════════════════════════════════════════════════════════════
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function renderMD(text) {
+  const frag = document.createDocumentFragment();
+  const codeRe = /```(\w*)\n?([\s\S]*?)```/g;
+  const parts = [];
+  let last = 0, m;
+  while ((m = codeRe.exec(text)) !== null) {
+    if (m.index > last) parts.push({ t: 'text', c: text.slice(last, m.index) });
+    parts.push({ t: 'code', lang: m[1] || '', c: m[2].trimEnd() });
+    last = m.index + m[0].length;
+  }
+  if (last < text.length) parts.push({ t: 'text', c: text.slice(last) });
+
+  parts.forEach(part => {
+    if (part.t === 'code') {
+      frag.appendChild(makeCodeBlock(part.c, part.lang));
+    } else {
+      frag.appendChild(makeText(part.c));
+    }
+  });
+  return frag;
+}
+
+function makeCodeBlock(code, lang) {
+  const wrap = document.createElement('div');
+  wrap.className = 'code-wrap';
+
+  const hd = document.createElement('div');
+  hd.className = 'code-hd';
+
+  const langEl = document.createElement('span');
+  langEl.className = 'code-lang';
+  langEl.textContent = lang || 'code';
+
+  const cpBtn = document.createElement('button');
+  cpBtn.className = 'cbtn ins';
+  cpBtn.textContent = '⎘ Copy';
+  cpBtn.onclick = () => {
+    navigator.clipboard.writeText(code).then(() => {
+      cpBtn.textContent = '✓ Copied!';
+      setTimeout(() => { cpBtn.textContent = '⎘ Copy'; }, 1500);
+    });
+  };
+
+  const dlBtn = document.createElement('button');
+  dlBtn.className = 'cbtn';
+  dlBtn.textContent = '↓ Download';
+  dlBtn.onclick = () => {
+    const ext = { javascript:'js',typescript:'ts',python:'py',go:'go',rust:'rs',java:'java',
+                  css:'css',html:'html',bash:'sh',sql:'sql',json:'json',yaml:'yml' }[lang] || 'txt';
+    const blob = new Blob([code], { type: 'text/plain' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'devbot-code.' + ext;
+    a.click();
+  };
+
+  hd.append(langEl, cpBtn, dlBtn);
+
+  const pre = document.createElement('pre');
+  const codeEl = document.createElement('code');
+  codeEl.textContent = code;
+  pre.appendChild(codeEl);
+
+  wrap.append(hd, pre);
+  return wrap;
+}
+
+function makeText(raw) {
+  const div = document.createElement('div');
+  let t = esc(raw);
+  t = t.replace(/`([^`\n]+)`/g, '<code>$1</code>');
+  t = t.replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>');
+  t = t.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  t = t.replace(/\*(.+?)\*/g, '<em>$1</em>');
+  t = t.replace(/^### (.+)$/gm, '<h3>$1</h3>');
+  t = t.replace(/^## (.+)$/gm,  '<h2>$1</h2>');
+  t = t.replace(/^# (.+)$/gm,   '<h1>$1</h1>');
+  t = t.replace(/^[\-\*] (.+)$/gm, '<li>$1</li>');
+  t = t.replace(/(<li>[\s\S]+?<\/li>)/g, '<ul>$1</ul>');
+  t = t.replace(/<\/ul>\s*<ul>/g, '');
+  t = t.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+  t = t.replace(/\n\n+/g, '</p><p>');
+  t = '<p>' + t + '</p>';
+  t = t.replace(/<p><\/p>/g, '');
+  div.innerHTML = t;
+  return div;
+}
+
+// ════════════════════════════════════════════════════════════
+// MESSAGES
+// ════════════════════════════════════════════════════════════
+const msgsEl = document.getElementById('msgs');
+
+function appendUser(text) {
+  const wrap = document.createElement('div');
+  wrap.className = 'msg user';
+  const av  = document.createElement('div'); av.className = 'msg-av'; av.textContent = '»';
+  const bub = document.createElement('div'); bub.className = 'msg-bub'; bub.textContent = text;
+  wrap.append(av, bub);
+  msgsEl.appendChild(wrap);
+  scroll();
+}
+
+function appendAssistant(content) {
+  const wrap = document.createElement('div');
+  wrap.className = 'msg assistant';
+  const av  = document.createElement('div'); av.className = 'msg-av'; av.textContent = cur().icon || '🤖';
+  const bub = document.createElement('div'); bub.className = 'msg-bub';
+  if (content) { bub.appendChild(renderMD(content)); }
+  else { bub.innerHTML = '<div class="ti"><span></span><span></span><span></span></div>'; }
+  wrap.append(av, bub);
+  msgsEl.appendChild(wrap);
+  scroll();
+  return bub;
+}
+
+function scroll() { msgsEl.scrollTop = msgsEl.scrollHeight; }
+
+// ════════════════════════════════════════════════════════════
+// SEND — routes through puter.js or direct API
+// ════════════════════════════════════════════════════════════
+async function send() {
+  const pe   = document.getElementById('prompt');
+  const text = pe.value.trim();
+  if (!text || busy) return;
+
+  const wb = document.getElementById('wb'); if (wb) wb.remove();
+
+  const convKey = ck();
+  if (!convs[convKey]) convs[convKey] = [];
+
+  // Build user content (attach file if any)
+  let uc = text;
+  if (upText && upFile) {
+    uc += '\n\n[Attached file: ' + upFile.name + ']\n```\n' + upText.slice(0, 10000) + '\n```';
+    upFile = null; upText = null;
+    document.getElementById('file-name').textContent = 'No file attached';
+    document.getElementById('file-input').value = '';
+  }
+
+  pe.value = ''; pe.style.height = 'auto';
+  busy = true; document.getElementById('send-btn').disabled = true;
+
+  appendUser(text);
+  convs[convKey].push({ role: 'user', content: uc });
+
+  const bub = appendAssistant(null);
+
+  try {
+    const p = cur();
+    if (p.routing === 'puter') {
+      await doPuter(p, convKey, bub);
+    } else {
+      await doDirect(p, convKey, uc, bub);
+    }
+  } catch (err) {
+    bub.innerHTML = '';
+    const div = document.createElement('div');
+    div.className = 'msg-err';
+    div.textContent = '⚠ ' + (err.message || 'Request failed. Check your API key and try again.');
+    bub.appendChild(div);
+  }
+
+  busy = false;
+  document.getElementById('send-btn').disabled = false;
+  document.getElementById('prompt').focus();
+  scroll();
+
+  // Persist conversation
+  try { await puter.kv.set('dbconv_' + convKey, JSON.stringify(convs[convKey].slice(-40))); } catch (_) {}
+}
+
+// ── PUTER.JS NATIVE AI ──────────────────────────────────────
+async function doPuter(p, convKey, bub) {
+  const msgs = [
+    { role: 'system', content: SYSTEM[mode] },
+    ...convs[convKey].slice(-20)
+  ];
+
+  let full = '';
+  try {
+    const resp = await puter.ai.chat(msgs, { model: p.model, stream: true });
+    bub.innerHTML = '';
+    const live = document.createElement('div');
+    live.style.cssText = 'white-space:pre-wrap;font-family:var(--mono);font-size:.78rem;line-height:1.7';
+    bub.appendChild(live);
+    for await (const chunk of resp) {
+      full += chunk?.text || '';
+      live.textContent = full;
+      scroll();
+    }
+    bub.innerHTML = '';
+    bub.appendChild(renderMD(full));
+  } catch (_) {
+    // Non-streaming fallback
+    const resp = await puter.ai.chat(msgs, { model: p.model });
+    full = resp?.message?.content?.[0]?.text || resp?.text || JSON.stringify(resp);
+    bub.innerHTML = '';
+    bub.appendChild(renderMD(full));
+  }
+
+  convs[convKey].push({ role: 'assistant', content: full });
+}
+
+// ── DIRECT API ──────────────────────────────────────────────
+async function doDirect(p, convKey, uc, bub) {
+  const key = apiKeys[p.id];
+  if (!key) {
+    bub.innerHTML = '';
+    bub.appendChild(renderMD(
+      '**API key required for ' + p.name + '.**\n\n' +
+      'Enter your key in the banner above, or click the **⚠ add key** badge in the provider bar.\n\n' +
+      '[Get your ' + p.name + ' API key ↗](' + p.docsUrl + ')'
+    ));
+    return;
+  }
+
+  const hist = convs[convKey].slice(-20);
+  let full = '';
+
+  if (p.id === 'cohere') {
+    const last = hist[hist.length - 1];
+    const chatHist = hist.slice(0, -1).map(m => ({
+      role: m.role === 'user' ? 'USER' : 'CHATBOT',
+      message: m.content
+    }));
+    const r = await fetch(p.apiBase, {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: p.bodyModel, message: last?.content || uc, preamble: SYSTEM[mode], chat_history: chatHist, max_tokens: 2048 })
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.message || d.error || ('HTTP ' + r.status));
+    full = d.text || JSON.stringify(d);
+
+  } else {
+    // OpenAI-compatible format (Fireworks, SambaNova, Perplexity all use this)
+    const r = await fetch(p.apiBase, {
+      method: 'POST',
+      headers: {
+        [p.authHeader]: p.authPrefix + key,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: p.bodyModel,
+        max_tokens: 2048,
+        messages: [{ role: 'system', content: SYSTEM[mode] }, ...hist]
+      })
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error?.message || d.message || ('HTTP ' + r.status));
+    full = d.choices?.[0]?.message?.content || JSON.stringify(d);
+  }
+
+  bub.innerHTML = '';
+  bub.appendChild(renderMD(full));
+  convs[convKey].push({ role: 'assistant', content: full });
+}
+
+// ════════════════════════════════════════════════════════════
+// CLEAR / NEW CHAT
+// ════════════════════════════════════════════════════════════
+function clearChat() {
+  const k = ck();
+  convs[k] = [];
+  msgsEl.innerHTML = '';
+  puter.kv.del('dbconv_' + k).catch(() => {});
+}
+document.getElementById('clear-btn').addEventListener('click', clearChat);
+
+// ════════════════════════════════════════════════════════════
+// INPUT EVENTS
+// ════════════════════════════════════════════════════════════
+const pe = document.getElementById('prompt');
+pe.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } });
+pe.addEventListener('input', () => { pe.style.height = 'auto'; pe.style.height = Math.min(pe.scrollHeight, 130) + 'px'; });
+document.getElementById('send-btn').addEventListener('click', send);
+
+// ════════════════════════════════════════════════════════════
+// INIT
+// ════════════════════════════════════════════════════════════
+renderSB();
+renderPills();
+setMode('code');
+selProvider(PROVIDERS[0]);
+document.getElementById('s-dot').classList.add('off'); // dims until puter loads
+pe.focus();
+</script>
+</body>
+</html>
