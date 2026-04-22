@@ -473,9 +473,10 @@ body.mode-decrypt #prompt:focus { border-color: var(--a4); }
     </div>
     <iframe id="auth-iframe" allow="same-origin" sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-top-navigation allow-popup-to-escape-sandbox"></iframe>
     <div class="auth-fallback" id="auth-fallback">
-      <p>The sign-in page couldn't load in the embedded frame.<br>
-         <a id="auth-ext-link" href="https://puter.com" target="_blank">Click here to sign in at puter.com ↗</a><br>
-         then come back and <button style="background:none;border:none;color:var(--a1);cursor:pointer;text-decoration:underline;padding:0;font-size:inherit" onclick="location.reload()">refresh this page</button>.</p>
+      <p><strong>Sign in to puter.com</strong><br><br>
+         Your API keys and data are stored securely with puter.js.<br><br>
+         <a id="auth-ext-link" href="https://puter.com" target="_blank" style="color:var(--a1);font-weight:700">Open puter.com to sign in ↗</a><br><br>
+         <small style="color:var(--muted)">After signing in, come back and refresh this page.</small></p>
     </div>
   </div>
 </div>
@@ -803,17 +804,38 @@ function showUser(u) {
 
 document.getElementById('signin-btn').addEventListener('click', async () => {
   try {
-    await puter.auth.signIn();
-    const u = await puter.auth.getUser();
-    showUser(u);
-    // Hide auth overlay if it was showing
-    window.__hideAuthOverlay?.();
-    await loadKeys();
-    refreshSB();
+    // Show fallback immediately since iframe approach fails due to CORS
+    showAuthFallback();
+
+    // Try puter.js sign in anyway (it might work in external environment)
+    try {
+      await puter.auth.signIn();
+      const u = await puter.auth.getUser();
+      showUser(u);
+      window.__hideAuthOverlay?.();
+      await loadKeys();
+      refreshSB();
+    } catch (e) {
+      console.warn('puter.js auth popup failed, using external link', e);
+    }
   } catch (e) {
-    console.warn('Auth cancelled or failed', e);
+    console.warn('Auth error', e);
   }
 });
+
+function showAuthFallback() {
+  const overlay = document.getElementById('auth-overlay');
+  const iframe  = document.getElementById('auth-iframe');
+  const fallback= document.getElementById('auth-fallback');
+
+  overlay.classList.add('show');
+  iframe.style.display = 'none';
+  fallback.classList.add('show');
+
+  // Set external link to actual puter.com sign in
+  const extLink = document.getElementById('auth-ext-link');
+  if (extLink) extLink.href = 'https://puter.com';
+}
 
 document.getElementById('signout-btn').addEventListener('click', async () => {
   try {
