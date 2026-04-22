@@ -809,6 +809,7 @@ document.getElementById('signout-btn').addEventListener('click', async () => {
 // PUTER.KV KEY STORAGE
 // ════════════════════════════════════════════════════════════
 async function loadKeys() {
+  if (typeof puter === 'undefined' || !puter.kv) return;
   for (const p of PROVIDERS.filter(x => x.routing === 'direct')) {
     try {
       const v = await puter.kv.get('dbk_' + p.id);
@@ -819,7 +820,9 @@ async function loadKeys() {
 
 async function saveKey(providerId, key) {
   apiKeys[providerId] = key;
-  try { await puter.kv.set('dbk_' + providerId, key); } catch (_) {}
+  if (typeof puter !== 'undefined' && puter.kv) {
+    try { await puter.kv.set('dbk_' + providerId, key); } catch (_) {}
+  }
 }
 
 // ════════════════════════════════════════════════════════════
@@ -1163,7 +1166,9 @@ async function send() {
   scroll();
 
   // Persist conversation
-  try { await puter.kv.set('dbconv_' + convKey, JSON.stringify(convs[convKey].slice(-40))); } catch (_) {}
+  if (typeof puter !== 'undefined' && puter.kv) {
+    try { await puter.kv.set('dbconv_' + convKey, JSON.stringify(convs[convKey].slice(-40))); } catch (_) {}
+  }
 }
 
 // ── PUTER.JS NATIVE AI ──────────────────────────────────────
@@ -1260,7 +1265,9 @@ function clearChat() {
   const k = ck();
   convs[k] = [];
   msgsEl.innerHTML = '';
-  puter.kv.del('dbconv_' + k).catch(() => {});
+  if (typeof puter !== 'undefined' && puter.kv) {
+    puter.kv.del('dbconv_' + k).catch(() => {});
+  }
 }
 document.getElementById('clear-btn').addEventListener('click', clearChat);
 
